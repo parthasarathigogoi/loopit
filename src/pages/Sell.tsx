@@ -19,18 +19,22 @@ const Sell: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!imageFile) return alert("Please upload an image");
     
     setLoading(true);
     try {
-      // 1. Upload Image
-      const { data: uploadData } = await uploadImage(imageFile);
+      let imageUrl = 'https://via.placeholder.com/400';
       
-      // 2. Create Product
+      // Upload image if provided
+      if (imageFile) {
+        const { data: uploadData } = await uploadImage(imageFile);
+        imageUrl = uploadData.url;
+      }
+      
+      // Create Product
       await createProduct({
         ...formData,
         price: Number(formData.price),
-        image: uploadData.url
+        image: imageUrl
       });
       
       navigate('/listings');
