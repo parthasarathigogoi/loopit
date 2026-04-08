@@ -24,10 +24,15 @@ const Sell: React.FC = () => {
     try {
       let imageUrl = 'https://via.placeholder.com/400';
       
-      // Upload image if provided
+      // Upload image if provided (non-blocking - use fallback if upload fails)
       if (imageFile) {
-        const { data: uploadData } = await uploadImage(imageFile);
-        imageUrl = uploadData.url;
+        try {
+          const { data: uploadData } = await uploadImage(imageFile);
+          imageUrl = uploadData.url;
+        } catch (uploadError) {
+          console.warn('Image upload failed, using placeholder:', uploadError);
+          // Continue with placeholder image - don't block product creation
+        }
       }
       
       // Create Product
@@ -37,6 +42,7 @@ const Sell: React.FC = () => {
         image: imageUrl
       });
       
+      alert('Product posted successfully!');
       navigate('/listings');
     } catch (error) {
       console.error(error);

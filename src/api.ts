@@ -181,7 +181,17 @@ export const deleteProduct = async (id: string) => {
 export const uploadImage = async (file: File) => {
   try {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!user) throw new Error('User not authenticated');
+    if (!user) throw new Error('User not authenticated. Please log in first.');
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error('Image size too large. Max: 10MB');
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Invalid file type. Please upload an image.');
+    }
     
     const fileName = `${user.uid}/${Date.now()}-${file.name}`;
     const storageRef = ref(storage, `products/${fileName}`);
@@ -191,7 +201,8 @@ export const uploadImage = async (file: File) => {
     
     return { data: { url: downloadURL } };
   } catch (error: any) {
-    throw new Error(error.message);
+    console.error('Image upload error:', error);
+    throw new Error(`Image upload failed: ${error.message}`);
   }
 };
 
