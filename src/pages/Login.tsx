@@ -113,6 +113,22 @@ const Login: React.FC = () => {
             >
               {loading ? "Please wait..." : (isSignup ? "Create Account" : "Login")} <ArrowRight className="w-6 h-6" />
             </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-gray-500 font-medium">Or</span>
+              </div>
+            </div>
+
+            <Link
+              to="/phone-login"
+              className="w-full py-5 border-2 border-gray-200 text-indigo-600 rounded-2xl font-black text-lg hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
+            >
+              Continue with Phone OTP
+            </Link>
           </form>
         </div>
       </div>
