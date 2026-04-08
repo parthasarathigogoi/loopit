@@ -1,22 +1,46 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Clock, ArrowRight } from 'lucide-react';
 import { fetchProducts } from '../api';
+import { categories } from '../data/mockData';
 
 const Home: React.FC = () => {
+  const navigate = useNavigate();
   const [recentListings, setRecentListings] = useState<any[]>([]);
+  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    const getRecent = async () => {
+    const getProducts = async () => {
       try {
         const { data } = await fetchProducts();
+        setAllProducts(data);
         setRecentListings(data.slice(0, 4));
       } catch (error) {
         console.error(error);
       }
     };
-    getRecent();
+    getProducts();
   }, []);
+
+  const getCategoryCount = (category: string) => {
+    if (category === 'All') return allProducts.length;
+    return allProducts.filter(p => p.category === category).length;
+  };
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      navigate(`/listings?search=${encodeURIComponent(searchQuery)}`);
+    } else {
+      navigate('/listings');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
   return (
     <main className="bg-white">
       {/* Hero Section */}
@@ -43,9 +67,14 @@ const Home: React.FC = () => {
               <input 
                 type="text" 
                 placeholder="Search for induction, plates, kettle..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleKeyPress}
                 className="w-full pl-14 pr-6 py-5 rounded-3xl border-2 border-gray-100 bg-white shadow-2xl shadow-indigo-100 focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50 outline-none transition-all text-lg"
               />
-              <button className="absolute right-3 top-3 bottom-3 bg-indigo-600 text-white px-8 rounded-2xl font-semibold hover:bg-indigo-700 transition-all hover:scale-[1.02] active:scale-[0.98]">
+              <button 
+                onClick={handleSearch}
+                className="absolute right-3 top-3 bottom-3 bg-indigo-600 text-white px-8 rounded-2xl font-semibold hover:bg-indigo-700 transition-all hover:scale-[1.02] active:scale-[0.98]">
                 Find Deals
               </button>
             </div>
@@ -80,17 +109,21 @@ const Home: React.FC = () => {
           
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { name: "Induction Stoves", count: 12, icon: "🔥", color: "bg-orange-100 text-orange-600" },
-              { name: "Kitchen Utensils", count: 45, icon: "🥣", color: "bg-blue-100 text-blue-600" },
-              { name: "Electric Kettles", count: 18, icon: "☕", color: "bg-yellow-100 text-yellow-600" },
-              { name: "Study Tables", count: 8, icon: "📚", color: "bg-green-100 text-green-600" },
+              { name: "Utensils", icon: "🥣", color: "bg-blue-100 text-blue-600" },
+              { name: "Appliances", icon: "☕", color: "bg-yellow-100 text-yellow-600" },
+              { name: "Furniture", icon: "🛏️", color: "bg-orange-100 text-orange-600" },
+              { name: "Other", icon: "📦", color: "bg-green-100 text-green-600" },
             ].map((cat) => (
-              <div key={cat.name} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
+              <div 
+                key={cat.name} 
+                onClick={() => navigate(`/listings?category=${cat.name}`)}
+                className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
+              >
                 <div className={`w-14 h-14 ${cat.color} rounded-2xl flex items-center justify-center text-2xl mb-6`}>
                   {cat.icon}
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-2">{cat.name}</h3>
-                <p className="text-sm text-gray-500">{cat.count} listings</p>
+                <p className="text-sm text-gray-500">{getCategoryCount(cat.name)} listings</p>
               </div>
             ))}
           </div>
@@ -111,7 +144,7 @@ const Home: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {recentListings.map((listing) => (
-            <Link key={listing._id} to={`/product/${listing._id}`} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all">
+            <Link key={listing.id} to={`/product/${listing.id}`} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all">
               <div className="relative aspect-[4/3] overflow-hidden">
                 <img 
                   src={listing.image} 

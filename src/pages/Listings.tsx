@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
 import { fetchProducts } from '../api';
 import { categories } from '../data/mockData';
 
 const Listings: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchParams] = useSearchParams();
+  const queryCategory = searchParams.get('category');
+  const querySearch = searchParams.get('search');
+  const [selectedCategory, setSelectedCategory] = useState(queryCategory || "All");
+  const [searchQuery, setSearchQuery] = useState(querySearch || '');
   const [priceRange, setPriceRange] = useState(2000);
   const [listings, setListings] = useState<any[]>([]);
 
@@ -21,9 +25,23 @@ const Listings: React.FC = () => {
     getProducts();
   }, []);
 
+  useEffect(() => {
+    if (queryCategory) {
+      setSelectedCategory(queryCategory);
+    }
+  }, [queryCategory]);
+
+  useEffect(() => {
+    if (querySearch) {
+      setSearchQuery(querySearch);
+    }
+  }, [querySearch]);
+
   const filteredListings = listings.filter(item => 
     (selectedCategory === "All" || item.category === selectedCategory) &&
-    item.price <= priceRange
+    item.price <= priceRange &&
+    (searchQuery === '' || item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     item.description?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
@@ -41,8 +59,8 @@ const Listings: React.FC = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Search items..."
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none transition-all shadow-sm"
+                placeholder="Search items..."                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none transition-all shadow-sm"
               />
             </div>
             <button className="p-3 bg-white border border-gray-200 rounded-2xl text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
@@ -91,7 +109,7 @@ const Listings: React.FC = () => {
           <div className="flex-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
               {filteredListings.map((listing) => (
-                <Link key={listing._id} to={`/product/${listing._id}`} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all">
+                <Link key={listing.id} to={`/product/${listing.id}`} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all">
                   <div className="relative aspect-[4/3] overflow-hidden">
                     <img 
                       src={listing.image} 
