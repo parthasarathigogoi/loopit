@@ -90,7 +90,9 @@ export const logout = async () => {
 // Product functions
 export const fetchProducts = async () => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'products'));
+    // Only fetch approved products for regular users
+    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
+    const querySnapshot = await getDocs(q);
     const products = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -140,15 +142,16 @@ export const createProduct = async (productData: any) => {
     const docRef = await addDoc(collection(db, 'products'), {
       ...productData,
       userId: user.uid,
+      status: 'pending', // Default status for new products
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     });
     
-    return { data: { id: docRef.id, ...productData } };
+    return { data: { id: docRef.id, ...productData, status: 'pending' } };
   } catch (error: any) {
     console.error('Product creation error:', error.message);
     // Return mock success for testing without Firestore
-    return { data: { id: Date.now().toString(), ...productData } };
+    return { data: { id: Date.now().toString(), ...productData, status: 'pending' } };
   }
 };
 
