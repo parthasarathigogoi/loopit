@@ -1,140 +1,98 @@
-import { auth } from '../firebase';
+import { auth, db } from "../firebase";
 import {
   RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult,
-} from 'firebase/auth';
-import { collection, addDoc, Timestamp, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+  signInWithPhoneNumber
+} from "firebase/auth";
+import {
+  collection,
+  addDoc,
+  Timestamp,
+  query,
+  where,
+  getDocs
+} from "firebase/firestore";
 
-let confirmationResult: ConfirmationResult | null = null;
+export const setupRecaptcha = () => {
+  const container = document.getElementById("recaptcha-container");
+  if (!container) throw new Error("reCAPTCHA container missing");
 
-export const initializeRecaptcha = () => {
-  try {
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new RecaptchaVerifier(
-        auth,
-        'recaptcha-container',
-        {
-          size: 'invisible',
-          callback: (token: any) => {
-            console.log('reCAPTCHA verified');
-          },
-        }
-      );
-    }
-    return window.recaptchaVerifier;
-  } catch (error: any) {
-    console.error('Error initializing reCAPTCHA:', error);
-    throw new Error('Failed to initialize reCAPTCHA. Please refresh and try again.');
+  if (window.recaptchaVerifier) {
+    window.recaptchaVerifier.clear();
   }
+
+  // ✅ FIXED ORDER
+  window.recaptchaVerifier = new RecaptchaVerifier(
+    auth,
+    "recaptcha-container",
+    { size: "invisible" }
+  );
 };
 
-export const sendOTP = async (phoneNumber: string) => {
+export const sendOTP = async (phone: string) => {
   try {
-    // Validate phone number format
-    if (!phoneNumber.startsWith('+')) {
-      throw new Error('Phone number must start with +');
-    }
-    if (phoneNumber.length < 10) {
-      throw new Error('Invalid phone number');
+    if (!phone.startsWith("+91")) {
+      throw new Error("Use +91 format");
     }
 
-    // Initialize reCAPTCHA
-    const appVerifier = initializeRecaptcha();
+    setupRecaptcha();
 
-    // Send OTP
-    confirmationResult = await signInWithPhoneNumber(
+    const appVerifier = window.recaptchaVerifier;
+
+    const confirmationResult = await signInWithPhoneNumber(
       auth,
-      phoneNumber,
+      phone,
       appVerifier
     );
 
-    console.log('OTP sent successfully');
-    return { success: true, message: 'OTP sent to your phone' };
+    window.confirmationResult = confirmationResult;
+
+    return { success: true };
   } catch (error: any) {
-    console.error('Error sending OTP:', error);
-    
-    if (error.code === 'auth/invalid-phone-number') {
-      throw new Error('Invalid phone number. Please use +91 format.');
-    } else if (error.code === 'auth/too-many-requests') {
-      throw new Error('Too many requests. Please try again later.');
-    } else if (error.message?.includes('reCAPTCHA')) {
-      throw new Error('reCAPTCHA verification failed. Please refresh the page.');
-    } else {
-      throw new Error(error.message || 'Failed to send OTP');
-    }
+    throw new Error(error.message);
   }
 };
 
 export const verifyOTP = async (otp: string) => {
   try {
-    if (!confirmationResult) {
-      throw new Error('OTP not sent yet. Please send OTP first.');
+    if (!window.confirmationResult) {
+      throw new Error("Send OTP first");
     }
 
-    if (otp.length !== 6) {
-      throw new Error('OTP must be 6 digits');
-    }
-
-    // Verify OTP
-    const result = await confirmationResult.confirm(otp);
+    const result = await window.confirmationResult.confirm(otp);
     const user = result.user;
 
-    // Save user to Firestore
-    await saveUserToFirestore(user.phoneNumber || '', user.uid);
+    await saveUser(user.phoneNumber || "", user.uid);
 
-    console.log('User verified successfully:', user);
-    return { success: true, user };
+    return user;
   } catch (error: any) {
-    console.error('Error verifying OTP:', error);
-    
-    if (error.code === 'auth/invalid-verification-code') {
-      throw new Error('Invalid OTP. Please try again.');
-    } else if (error.code === 'auth/code-expired') {
-      throw new Error('OTP has expired. Please request a new one.');
-    } else {
-      throw new Error(error.message || 'Failed to verify OTP');
-    }
+    throw new Error(error.message);
   }
 };
 
-export const saveUserToFirestore = async (phoneNumber: string, uid: string) => {
-  try {
-    // Check if user already exists
-    const q = query(collection(db, 'users'), where('uid', '==', uid));
-    const querySnapshot = await getDocs(q);
+const saveUser = async (phone: string, uid: string) => {
+  const q = query(collection(db, "users"), where("uid", "==", uid));
+  const snap = await getDocs(q);
 
-    if (querySnapshot.empty) {
-      // User doesn't exist, create new user
-      await addDoc(collection(db, 'users'), {
-        uid,
-        phoneNumber,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
-      console.log('User saved to Firestore');
-    } else {
-      console.log('User already exists in Firestore');
-    }
-  } catch (error: any) {
-    console.error('Error saving user to Firestore:', error);
-    // Don't throw error - user is already authenticated
-    // Firestore save is optional
+  if (snap.empty) {
+    await addDoc(collection(db, "users"), {
+      uid,
+      phone,
+      createdAt: Timestamp.now()
+    });
   }
 };
 
 export const resetPhoneAuth = () => {
-  confirmationResult = null;
+  window.confirmationResult = null;
   if (window.recaptchaVerifier) {
     window.recaptchaVerifier.clear();
     window.recaptchaVerifier = null;
   }
 };
 
-// Type definition for window
 declare global {
   interface Window {
-    recaptchaVerifier: RecaptchaVerifier | null;
+    recaptchaVerifier: any;
+    confirmationResult: any;
   }
 }

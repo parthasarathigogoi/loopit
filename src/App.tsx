@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
+import ProtectedProfileRoute from './components/ProtectedProfileRoute';
 import Home from './pages/Home';
 import Listings from './pages/Listings';
 import ProductDetail from './pages/ProductDetail';
@@ -13,6 +14,7 @@ import AdminPanel from './pages/AdminPanel';
 
 const AppContent: React.FC = () => {
   const location = useLocation();
+  // Hide navbar only on login pages and admin panel
   const hideNavbar = location.pathname === '/login' || location.pathname === '/phone-login' || location.pathname === '/admin';
 
   return (
@@ -25,7 +27,14 @@ const AppContent: React.FC = () => {
         <Route path="/sell" element={<Sell />} />
         <Route path="/login" element={<Login />} />
         <Route path="/phone-login" element={<PhoneLogin />} />
-        <Route path="/profile" element={<Dashboard />} />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedProfileRoute>
+              <Dashboard />
+            </ProtectedProfileRoute>
+          } 
+        />
         <Route
           path="/admin"
           element={
@@ -34,6 +43,8 @@ const AppContent: React.FC = () => {
             </ProtectedAdminRoute>
           }
         />
+        {/* 404 Fallback - redirect to home */}
+        <Route path="*" element={<Home />} />
       </Routes>
     </div>
   );

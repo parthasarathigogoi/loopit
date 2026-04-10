@@ -2,50 +2,118 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Package, Settings, LogOut, ShieldCheck, Heart, Edit3, Trash2 } from 'lucide-react';
 import { fetchUserProducts, deleteProduct } from '../api';
+import { auth } from '../firebase';
+
+interface User {
+  name?: string;
+  email?: string;
+  uid?: string;
+}
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [userListings, setUserListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const user = JSON.parse(localStorage.getItem('user') || 'null');
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
+  // Check Firebase Auth first
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (!firebaseUser) {
+        // User not authenticated, redirect to login
+        navigate('/phone-login');
+        setAuthLoading(false);
+        return;
+      }
+
+      // Get user from localStorage or Firebase
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch (error) {
+          console.error('Error parsing stored user:', error);
+          setUser({
+            name: firebaseUser.displayName || 'User',
+            email: firebaseUser.email || 'No email',
+            uid: firebaseUser.uid,
+          });
+        }
+      } else {
+        setUser({
+          name: firebaseUser.displayName || 'User',
+          email: firebaseUser.email || 'No email',
+          uid: firebaseUser.uid,
+        });
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
+
+  // Fetch user data after auth is confirmed
+  useEffect(() => {
+    if (authLoading || !user) return;
 
     const getUserData = async () => {
       try {
         const { data } = await fetchUserProducts();
-        setUserListings(data);
+        setUserListings(data || []);
       } catch (error) {
-        console.error(error);
+        console.error('Error fetching products:', error);
+        setUserListings([]);
       } finally {
         setLoading(false);
       }
     };
     getUserData();
-  }, [user, navigate]);
+  }, [user, authLoading]);
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this listing?")) {
+    if (window.confirm('Are you sure you want to delete this listing?')) {
       try {
         await deleteProduct(id);
         setUserListings(userListings.filter(l => l._id !== id));
       } catch (error) {
-        console.error(error);
-        alert("Failed to delete product");
+        console.error('Error deleting product:', error);
+        alert('Failed to delete product');
       }
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      localStorage.removeItem('user');
+      navigate('/phone-login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      alert('Failed to logout');
+    }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  // Show loading state while checking auth
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50/30">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-semibold">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Safety check - should not reach here due to auth redirect, but just in case
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50/30">
+        <p className="text-red-600 font-semibold">Unable to load profile. Redirecting...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/30 py-12">
@@ -57,10 +125,10 @@ const Dashboard: React.FC = () => {
             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl text-center relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
               <div className="w-24 h-24 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 font-black text-4xl mx-auto mb-6">
-                {user.name[0]}
+                {user?.name?.[0]?.toUpperCase() || '?'}
               </div>
-              <h2 className="text-xl font-black text-gray-900">{user.name}</h2>
-              <p className="text-sm text-gray-500 font-medium mt-1">{user.email}</p>
+              <h2 className="text-xl font-black text-gray-900">{user?.name || 'User'}</h2>
+              <p className="text-sm text-gray-500 font-medium mt-1">{user?.email || 'No email'}</p>
               
               <div className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full inline-flex">
                 <ShieldCheck className="w-4 h-4" /> Verified Student
