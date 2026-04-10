@@ -38,7 +38,7 @@ const AppContent: React.FC = () => {
         <Route
           path="/admin"
           element={
-            <ProtectedAdminRoute adminEmail="admin@loopit.com">
+            <ProtectedAdminRoute>
               <AdminPanel />
             </ProtectedAdminRoute>
           }
