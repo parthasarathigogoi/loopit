@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+.env.recaptcha
+.env.production
+.env.test
+dist/
+uploads/
+.DS_Store
+*.log
+npm-debug.log*
+.vscode
+.idea
