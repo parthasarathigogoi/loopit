@@ -1,38 +1,45 @@
-# reCAPTCHA Configuration
+# Firebase reCAPTCHA Configuration
 
-## Keys
+## Using Firebase Auth's Built-in reCAPTCHA
 
-### Site Key (Frontend)
-```
-6LcS7rAsAAAAABFRqL5UHevgX8I5krUiYuHumIcY
-```
-- Used in: `index.html`
-- Used for: Rendering reCAPTCHA widget in browser
+This project uses **Firebase Auth's RecaptchaVerifier** for reCAPTCHA protection on phone authentication. No external Google reCAPTCHA configuration is needed.
 
-### Secret Key (Backend)
-```
-6LcS7rAsAAAAAJYWwuDrUjr9DCHauOYs5dUckAbG
-```
-- Stored in: `.env.local` (frontend) and `backend/.env.recaptcha`
-- Used for: Server-side verification of reCAPTCHA tokens
-- ⚠️ Keep this secret! Never expose in frontend code
+## How It Works
 
-## Files Updated
+1. **Frontend (`phoneAuth.ts`):**
+   ```typescript
+   import { RecaptchaVerifier } from 'firebase/auth';
+   
+   window.recaptchaVerifier = new RecaptchaVerifier(
+     auth,
+     'recaptcha-container',
+     { size: 'invisible' }
+   );
+   ```
 
-1. **index.html** - Updated with new site key for reCAPTCHA Enterprise script
-2. **.env.local** - Frontend environment variables (includes Site Key)
-3. **backend/.env.recaptcha** - Backend environment variables (includes Secret Key)
+2. **HTML Container:**
+   ```html
+   <div id="recaptcha-container"></div>
+   ```
 
-## Usage
+3. **Phone Authentication:**
+   - RecaptchaVerifier automatically handles reCAPTCHA validation
+   - No secret key needed on backend
+   - Firebase handles all verification
 
-### Frontend
-The reCAPTCHA script is automatically loaded in `index.html`. Firebase Auth uses it for phone authentication.
+## Files
 
-### Backend (If needed)
-To verify reCAPTCHA tokens on the server, use the secret key from `.env.recaptcha`.
+- `index.html` - Contains the reCAPTCHA container div
+- `src/services/phoneAuth.ts` - Firebase reCAPTCHA setup
+- `src/pages/PhoneLogin.tsx` - Uses phone auth with reCAPTCHA
 
-## Security Notes
-- Site Key is public (safe to expose in HTML)
-- Secret Key is private (never commit unencrypted)
-- Add `.env.local` to `.gitignore`
-- Add `backend/.env.recaptcha` to `.gitignore`
+## Requirements
+
+- Firebase Auth enabled in Firebase Console
+- reCAPTCHA enabled in Authentication > Sign-in method > Phone
+- Internet connection for reCAPTCHA to load
+
+## No External Keys Needed
+
+Firebase handles everything internally. No Google reCAPTCHA Enterprise keys required.
+
