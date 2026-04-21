@@ -22,7 +22,7 @@ const Dashboard: React.FC = () => {
     const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
       if (!firebaseUser) {
         // User not authenticated, redirect to login
-        navigate('/phone-login');
+        navigate('/login');
         setAuthLoading(false);
         return;
       }
@@ -87,7 +87,7 @@ const Dashboard: React.FC = () => {
     try {
       await auth.signOut();
       localStorage.removeItem('user');
-      navigate('/phone-login');
+      navigate('/login');
     } catch (error) {
       console.error('Error logging out:', error);
       alert('Failed to logout');

@@ -16,6 +16,11 @@ import {
 const TEST_EMAIL = `test-${Date.now()}@loopit.com`;
 const TEST_PASSWORD = 'TestPassword123!';
 
+type FirebaseTestError = {
+  code?: string;
+  message?: string;
+};
+
 export async function runDatabaseTests() {
   console.log('🔄 Starting Firebase Connection Tests...\n');
 
@@ -75,15 +80,16 @@ export async function runDatabaseTests() {
     console.log('\nYour Firebase setup is ready for deployment!');
     return true;
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const firebaseError = error as FirebaseTestError;
     console.error('\n❌ TEST FAILED');
     console.error('═══════════════════════════════════════');
-    console.error('Error:', error.message);
+    console.error('Error:', firebaseError.message || 'Unknown error');
     console.error('═══════════════════════════════════════');
     
-    if (error.code === 'auth/email-already-in-use') {
+    if (firebaseError.code === 'auth/email-already-in-use') {
       console.log('\n💡 Tip: Test email already exists. Run the test again.');
-    } else if (error.code === 'permission-denied') {
+    } else if (firebaseError.code === 'permission-denied') {
       console.log('\n💡 Tip: Check your Firestore security rules in Firebase Console.');
       console.log('   Navigate to: Firestore → Rules');
       console.log('   Current rules must allow authenticated users to read/write.');

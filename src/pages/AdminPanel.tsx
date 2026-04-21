@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import { collection, query, where, onSnapshot, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { ChevronDown, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { ADMIN_EMAIL, normalizeEmail } from '../constants/admin';
 
 interface Product {
   id: string;
@@ -25,9 +26,6 @@ const AdminPanel: React.FC = () => {
   const [adminEmail, setAdminEmail] = useState<string>('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Admin email (change this to your admin email)
-  const ADMIN_EMAIL = 'admin@loopit.com';
-
   useEffect(() => {
     // Check if user is admin
     const unsubscribeAuth = auth.onAuthStateChanged((user) => {
@@ -36,12 +34,12 @@ const AdminPanel: React.FC = () => {
         return;
       }
 
-      if (user.email !== ADMIN_EMAIL) {
+      if (normalizeEmail(user.email) !== normalizeEmail(ADMIN_EMAIL)) {
         navigate('/');
         return;
       }
 
-      setAdminEmail(user.email);
+      setAdminEmail(user.email || '');
     });
 
     return () => unsubscribeAuth();

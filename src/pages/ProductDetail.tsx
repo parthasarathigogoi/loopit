@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { MapPin, MessageCircle, ArrowLeft, ShieldCheck, Share2, Heart } from 'lucide-react';
-import { fetchProduct } from '../api';
+import { createPaytmBooking, fetchPaytmBookingStatus, fetchProduct } from '../api';
+import { hasAcceptedCurrentPolicy } from '../constants/policy';
+import { getBookingBreakdown } from '../constants/payment';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState('');
+  const [paymentError, setPaymentError] = useState('');
 
   useEffect(() => {
     const getProduct = async () => {
@@ -38,6 +45,135 @@ const ProductDetail: React.FC = () => {
   }
 
   const whatsappUrl = `https://wa.me/${product.seller?.phone}?text=Hi ${product.seller?.name}, I'm interested in your ${product.title} listed on LoopIt.`;
+  const hasAcceptedPolicy = hasAcceptedCurrentPolicy();
+  const bookingBreakdown = getBookingBreakdown(Number(product.price || 0));
+
+  const loadPaytmScript = (paytmHost: string, mid: string) =>
+    new Promise<void>((resolve, reject) => {
+      const scriptId = `paytm-checkout-${mid}`;
+      const existingScript = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+      if (existingScript) {
+        if (window.Paytm?.CheckoutJS) {
+          resolve();
+          return;
+        }
+
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener('error', () => reject(new Error('Unable to load Paytm checkout script')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.type = 'application/javascript';
+      script.src = `${paytmHost}/merchantpgpui/checkoutjs/merchants/${mid}.js`;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('Unable to load Paytm checkout script'));
+      document.body.appendChild(script);
+    });
+
+  const handleContactSeller = () => {
+    if (hasAcceptedPolicy) {
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    const params = new URLSearchParams({
+      returnTo: location.pathname,
+      target: whatsappUrl,
+    });
+
+    navigate(`/policy?${params.toString()}`);
+  };
+
+  const handlePaytmBooking = async () => {
+    const storedUser = localStorage.getItem('user');
+    const currentUser = storedUser ? JSON.parse(storedUser) : null;
+
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    if (!hasAcceptedPolicy) {
+      const params = new URLSearchParams({
+        returnTo: location.pathname,
+      });
+      navigate(`/policy?${params.toString()}`);
+      return;
+    }
+
+    setPaymentLoading(true);
+    setPaymentError('');
+    setPaymentMessage('');
+
+    try {
+      const bookingResponse = await createPaytmBooking({
+        productId: product.id,
+        productTitle: product.title,
+        productPrice: Number(product.price),
+        customerId: currentUser.uid,
+        customerEmail: currentUser.email,
+        customerName: currentUser.name || currentUser.email?.split('@')[0] || 'LoopIt Buyer',
+      });
+
+      const { orderId, txnToken, amount, paytmMid, paytmHost } = bookingResponse.data;
+      await loadPaytmScript(paytmHost, paytmMid);
+
+      if (!window.Paytm?.CheckoutJS) {
+        throw new Error('Paytm Checkout is unavailable right now.');
+      }
+
+      const verifyPayment = async () => {
+        const statusResponse = await fetchPaytmBookingStatus(orderId);
+        if (statusResponse.data.isSuccess) {
+          setPaymentMessage('Booking payment successful. Seller contact is now unlocked for this item.');
+        } else {
+          setPaymentError('Payment was not completed. Please try again.');
+        }
+        setPaymentLoading(false);
+      };
+
+      window.Paytm.CheckoutJS.onLoad(() => {
+        window.Paytm?.CheckoutJS?.init({
+          root: '',
+          flow: 'DEFAULT',
+          data: {
+            orderId,
+            token: txnToken,
+            tokenType: 'TXN_TOKEN',
+            amount,
+          },
+          merchant: {
+            redirect: false,
+          },
+          handler: {
+            notifyMerchant: (eventName: string) => {
+              if (eventName === 'APP_CLOSED') {
+                setPaymentLoading(false);
+                setPaymentError('Payment window was closed before completion.');
+              }
+            },
+            transactionStatus: async () => {
+              await verifyPayment();
+            },
+          },
+        })
+          .then(() => {
+            window.Paytm?.CheckoutJS?.invoke();
+          })
+          .catch((error: unknown) => {
+            setPaymentLoading(false);
+            setPaymentError(error instanceof Error ? error.message : 'Unable to open Paytm checkout');
+          });
+      });
+    } catch (error) {
+      setPaymentLoading(false);
+      setPaymentError(error instanceof Error ? error.message : 'Unable to start Paytm payment');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -84,14 +220,55 @@ const ProductDetail: React.FC = () => {
 
             <div className="space-y-8">
               {/* WhatsApp Contact Action */}
-              <a 
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={handleContactSeller}
                 className="flex items-center justify-center gap-3 bg-green-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-600 shadow-xl shadow-green-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
-                <MessageCircle className="w-6 h-6" /> Contact via WhatsApp
-              </a>
+                <MessageCircle className="w-6 h-6" />
+                {hasAcceptedPolicy ? 'Contact via WhatsApp' : 'Review Policy to Contact Seller'}
+              </button>
+              <p className="text-sm text-gray-500 -mt-4">
+                Users must agree to the LoopIt booking and usage policy before continuing to the seller.
+              </p>
+
+              <div className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Book With Paytm</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Reserve this item by paying the booking amount online. The fixed LoopIt fee is non-refundable.
+                    </p>
+                  </div>
+                  <span className="text-2xl font-black text-indigo-600">₹{bookingBreakdown.totalBookingAmount}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm text-gray-700">
+                  <div className="bg-white rounded-2xl p-4">
+                    <p className="text-gray-500">Refundable</p>
+                    <p className="font-bold text-gray-900 mt-1">₹{bookingBreakdown.refundableAmount}</p>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4">
+                    <p className="text-gray-500">LoopIt Fee</p>
+                    <p className="font-bold text-gray-900 mt-1">₹{bookingBreakdown.serviceFee}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handlePaytmBooking}
+                  disabled={paymentLoading}
+                  className="w-full flex items-center justify-center gap-3 bg-[#00baf2] text-white py-4 rounded-2xl font-bold text-lg hover:bg-[#009fd1] transition-all disabled:opacity-60"
+                >
+                  {paymentLoading ? 'Opening Paytm...' : `Pay ₹${bookingBreakdown.totalBookingAmount} with Paytm`}
+                </button>
+                {paymentMessage && (
+                  <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                    <p className="text-green-700 font-medium">{paymentMessage}</p>
+                  </div>
+                )}
+                {paymentError && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                    <p className="text-red-700 font-medium">{paymentError}</p>
+                  </div>
+                )}
+              </div>
 
               {/* Description */}
               <div className="border-t border-gray-100 pt-8">

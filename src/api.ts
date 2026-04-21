@@ -21,6 +21,9 @@ import {
   getDownloadURL
 } from 'firebase/storage';
 import { auth, db, storage } from './firebase';
+import { getBookingBreakdown } from './constants/payment';
+
+const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
 // Authentication functions
 export const login = async (formData: any) => {
@@ -74,6 +77,14 @@ export const signup = async (formData: any) => {
     
     return { data: userData };
   } catch (error: any) {
+    // Handle specific Firebase auth errors
+    if (error.code === 'auth/email-already-in-use') {
+      throw new Error('This email is already registered. Please login instead or use a different email.');
+    } else if (error.code === 'auth/weak-password') {
+      throw new Error('Password should be at least 6 characters long.');
+    } else if (error.code === 'auth/invalid-email') {
+      throw new Error('Please enter a valid email address.');
+    }
     throw new Error(error.message);
   }
 };
@@ -206,4 +217,66 @@ export const uploadImage = async (file: File) => {
   }
 };
 
-export default { login, signup, logout, fetchProducts, fetchProduct, createProduct, updateProduct, deleteProduct, fetchUserProducts, uploadImage };
+export const createPaytmBooking = async (payload: {
+  productId: string;
+  productTitle: string;
+  productPrice: number;
+  customerId?: string;
+  customerEmail?: string | null;
+  customerName?: string;
+  customerPhone?: string;
+}) => {
+  const response = await fetch(`${BACKEND_BASE_URL}/api/payments/paytm/initiate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to create Paytm booking');
+  }
+
+  return data;
+};
+
+export const fetchPaytmBookingStatus = async (orderId: string) => {
+  const response = await fetch(`${BACKEND_BASE_URL}/api/payments/paytm/status/${orderId}`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to verify Paytm booking status');
+  }
+
+  return data;
+};
+
+export const fetchPaytmConfig = async () => {
+  const response = await fetch(`${BACKEND_BASE_URL}/api/payments/paytm/config`);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to fetch Paytm configuration');
+  }
+
+  return data;
+};
+
+export default {
+  login,
+  signup,
+  logout,
+  fetchProducts,
+  fetchProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  fetchUserProducts,
+  uploadImage,
+  createPaytmBooking,
+  fetchPaytmBookingStatus,
+  fetchPaytmConfig,
+  getBookingBreakdown,
+};

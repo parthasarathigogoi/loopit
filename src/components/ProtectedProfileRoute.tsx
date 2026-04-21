@@ -18,9 +18,9 @@ const ProtectedProfileRoute: React.FC<ProtectedProfileRouteProps> = ({ children 
         console.log('User authenticated:', user.phoneNumber);
         setIsAuthorized(true);
       } else {
-        // User is not authenticated, redirect to phone login
+        // User is not authenticated, redirect to login
         console.log('User not authenticated, redirecting to login');
-        navigate('/phone-login', { replace: true });
+        navigate('/login', { replace: true });
         setIsAuthorized(false);
       }
       setIsLoading(false);

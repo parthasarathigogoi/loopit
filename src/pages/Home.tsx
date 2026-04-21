@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Clock, ArrowRight } from 'lucide-react';
 import { fetchProducts } from '../api';
-import { categories } from '../data/mockData';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
