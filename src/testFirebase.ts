@@ -13,6 +13,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import type { Product } from './types/app';
 
 const TEST_EMAIL = `test-${Date.now()}@loopit.com`;
 const TEST_PASSWORD = 'TestPassword123!';
@@ -44,7 +45,7 @@ async function testFirebase() {
     const productsSnapshot = await getDocs(collection(db, 'products'));
     console.log(`✅ Total products in database: ${productsSnapshot.size}`);
     productsSnapshot.forEach((doc) => {
-      console.log(`   - ${doc.id}: ${(doc.data() as any).title}`);
+      console.log(`   - ${doc.id}: ${(doc.data() as Partial<Product>).title ?? 'Untitled product'}`);
     });
     console.log();
 
@@ -85,18 +86,19 @@ async function testFirebase() {
     console.log('   ✓ Firebase Storage (Upload, Download)');
     console.log('\nYour Firebase setup is ready for deployment!');
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const firebaseError = error as { message?: string; code?: string };
     console.error('\n❌ TEST FAILED');
     console.error('═══════════════════════════════════════');
-    console.error('Error:', error.message);
-    console.error('Code:', error.code);
+    console.error('Error:', firebaseError.message);
+    console.error('Code:', firebaseError.code);
     console.error('═══════════════════════════════════════');
     
-    if (error.code === 'auth/email-already-in-use') {
+    if (firebaseError.code === 'auth/email-already-in-use') {
       console.log('\n💡 Tip: Test email already exists. Run the test again with a fresh timestamp.');
-    } else if (error.code === 'permission-denied') {
+    } else if (firebaseError.code === 'permission-denied') {
       console.log('\n💡 Tip: Check your Firestore security rules in Firebase Console.');
-    } else if (error.code === 'storage/unauthenticated') {
+    } else if (firebaseError.code === 'storage/unauthenticated') {
       console.log('\n💡 Tip: Update Firebase Storage rules to allow authenticated uploads.');
     }
   }

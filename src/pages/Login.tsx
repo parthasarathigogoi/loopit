@@ -3,14 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingBag, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { login, signup } from '../api';
 import { ADMIN_EMAIL, normalizeEmail } from '../constants/admin';
+import type { AuthFormData } from '../types/app';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isSignup, setIsSignup] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<AuthFormData>({
     name: "",
     email: "",
-    password: ""
+    password: "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,9 +33,9 @@ const Login: React.FC = () => {
         localStorage.setItem('user', JSON.stringify(response.data));
         navigate(normalizeEmail(response.data.email) === normalizeEmail(ADMIN_EMAIL) ? '/admin' : '/profile');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      setError(error.message || "Authentication failed");
+      setError(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }

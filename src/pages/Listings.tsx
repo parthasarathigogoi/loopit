@@ -3,42 +3,54 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
 import { fetchProducts } from '../api';
 import { categories } from '../data/mockData';
+import type { Product } from '../types/app';
 
 const Listings: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryCategory = searchParams.get('category');
   const querySearch = searchParams.get('search');
-  const [selectedCategory, setSelectedCategory] = useState(queryCategory || "All");
-  const [searchQuery, setSearchQuery] = useState(querySearch || '');
   const [priceRange, setPriceRange] = useState(2000);
-  const [listings, setListings] = useState<any[]>([]);
+  const [listings, setListings] = useState<Product[]>([]);
+  const selectedCategory = queryCategory || 'All';
+  const searchQuery = querySearch || '';
 
   useEffect(() => {
     const getProducts = async () => {
       try {
         const { data } = await fetchProducts();
         setListings(data);
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(error);
       }
     };
     getProducts();
   }, []);
 
-  useEffect(() => {
-    if (queryCategory) {
-      setSelectedCategory(queryCategory);
-    }
-  }, [queryCategory]);
+  const updateFilters = (updates: { category?: string; search?: string }) => {
+    const nextParams = new URLSearchParams(searchParams);
 
-  useEffect(() => {
-    if (querySearch) {
-      setSearchQuery(querySearch);
+    if (updates.category !== undefined) {
+      if (updates.category === 'All') {
+        nextParams.delete('category');
+      } else {
+        nextParams.set('category', updates.category);
+      }
     }
-  }, [querySearch]);
+
+    if (updates.search !== undefined) {
+      const trimmedSearch = updates.search.trim();
+      if (trimmedSearch) {
+        nextParams.set('search', updates.search);
+      } else {
+        nextParams.delete('search');
+      }
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const filteredListings = listings.filter(item => 
-    (selectedCategory === "All" || item.category === selectedCategory) &&
+    (selectedCategory === 'All' || item.category === selectedCategory) &&
     item.price <= priceRange &&
     (searchQuery === '' || item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
      item.description?.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -57,11 +69,13 @@ const Listings: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="relative flex-1 md:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input 
-                type="text" 
-                placeholder="Search items..."                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none transition-all shadow-sm"
-              />
+                <input 
+                  type="text" 
+                  placeholder="Search items..."
+                  value={searchQuery}
+                  onChange={(e) => updateFilters({ search: e.target.value })}
+                  className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none transition-all shadow-sm"
+                />
             </div>
             <button className="p-3 bg-white border border-gray-200 rounded-2xl text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
               <SlidersHorizontal className="w-5 h-5" />
@@ -78,7 +92,7 @@ const Listings: React.FC = () => {
                 {categories.map(cat => (
                   <button 
                     key={cat}
-                    onClick={() => setSelectedCategory(cat)}
+                    onClick={() => updateFilters({ category: cat })}
                     className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === cat ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-600 hover:bg-white'}`}
                   >
                     {cat}
@@ -147,7 +161,10 @@ const Listings: React.FC = () => {
               <div className="text-center py-20">
                 <p className="text-gray-500 text-lg">No items found matching your filters.</p>
                 <button 
-                  onClick={() => {setSelectedCategory("All"); setPriceRange(2000);}}
+                  onClick={() => {
+                    updateFilters({ category: 'All', search: '' });
+                    setPriceRange(2000);
+                  }}
                   className="mt-4 text-indigo-600 font-bold hover:underline"
                 >
                   Clear all filters

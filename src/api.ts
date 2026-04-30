@@ -13,51 +13,96 @@ import {
   query,
   where,
   doc,
-  Timestamp
+  Timestamp,
+  type DocumentData,
+  type DocumentSnapshot,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import {
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from 'firebase/storage';
-import { auth, db, storage } from './firebase';
+import { auth, db } from './firebase';
 import { getBookingBreakdown } from './constants/payment';
+import type { AuthFormData, Product, ProductDraft, StoredUser } from './types/app';
 
 const BACKEND_BASE_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
+const normalizeError = (error: unknown) => {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error('An unexpected error occurred');
+};
+
+const getStoredUser = (): StoredUser | null => {
+  const storedUser = localStorage.getItem('user');
+  if (!storedUser) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(storedUser) as StoredUser;
+  } catch {
+    localStorage.removeItem('user');
+    return null;
+  }
+};
+
+const mapProduct = (
+  snapshot: QueryDocumentSnapshot<DocumentData> | DocumentSnapshot<DocumentData>,
+): Product | null => {
+  const data = snapshot.data();
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: snapshot.id,
+    title: String(data.title ?? ''),
+    description: String(data.description ?? ''),
+    price: Number(data.price ?? 0),
+    category: String(data.category ?? ''),
+    location: String(data.location ?? ''),
+    image: String(data.image ?? ''),
+    userId: String(data.userId ?? ''),
+    status: (data.status ?? 'pending') as Product['status'],
+    seller: data.seller as Product['seller'],
+    createdAt: (data.createdAt as Product['createdAt']) ?? null,
+    updatedAt: (data.updatedAt as Product['updatedAt']) ?? null,
+  };
+};
+
 // Authentication functions
-export const login = async (formData: any) => {
+export const login = async (formData: AuthFormData) => {
   try {
     const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
     const user = result.user;
     const token = await user.getIdToken();
     
     // Store user data in localStorage
-    const userData = {
+    const userData: StoredUser = {
       uid: user.uid,
       email: user.email,
-      token: token
+      token,
     };
     localStorage.setItem('user', JSON.stringify(userData));
     
     return { data: userData };
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
-export const signup = async (formData: any) => {
+export const signup = async (formData: AuthFormData) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
     const user = result.user;
     const token = await user.getIdToken();
     
     // Store user data in localStorage
-    const userData = {
+    const userData: StoredUser = {
       uid: user.uid,
       email: user.email,
       name: formData.name || '',
-      token: token
+      token,
     };
     localStorage.setItem('user', JSON.stringify(userData));
     
@@ -76,16 +121,17 @@ export const signup = async (formData: any) => {
     }
     
     return { data: userData };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle specific Firebase auth errors
-    if (error.code === 'auth/email-already-in-use') {
+    const authError = error as { code?: string; message?: string };
+    if (authError.code === 'auth/email-already-in-use') {
       throw new Error('This email is already registered. Please login instead or use a different email.');
-    } else if (error.code === 'auth/weak-password') {
+    } else if (authError.code === 'auth/weak-password') {
       throw new Error('Password should be at least 6 characters long.');
-    } else if (error.code === 'auth/invalid-email') {
+    } else if (authError.code === 'auth/invalid-email') {
       throw new Error('Please enter a valid email address.');
     }
-    throw new Error(error.message);
+    throw new Error(authError.message || 'Unable to create account');
   }
 };
 
@@ -93,89 +139,123 @@ export const logout = async () => {
   try {
     await signOut(auth);
     localStorage.removeItem('user');
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
 // Product functions
-export const fetchProducts = async () => {
+export const fetchProducts = async (): Promise<{ data: Product[] }> => {
   try {
     // Only fetch approved products for regular users
     const q = query(collection(db, 'products'), where('status', '==', 'approved'));
     const querySnapshot = await getDocs(q);
-    const products = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const products = querySnapshot.docs
+      .map((productDoc) => mapProduct(productDoc))
+      .filter((product): product is Product => Boolean(product));
     return { data: products };
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
-export const fetchProduct = async (id: string) => {
+export const fetchProduct = async (id: string): Promise<{ data: Product }> => {
   try {
     const docRef = doc(db, 'products', id);
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      return { data: { id: docSnap.id, ...docSnap.data() } };
+      const product = mapProduct(docSnap);
+      if (!product) {
+        throw new Error('Product not found');
+      }
+
+      return { data: product };
     } else {
       throw new Error('Product not found');
     }
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
-export const fetchUserProducts = async () => {
+export const fetchUserProducts = async (): Promise<{ data: Product[] }> => {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const user = getStoredUser();
     if (!user) throw new Error('User not authenticated');
     
     const q = query(collection(db, 'products'), where('userId', '==', user.uid));
     const querySnapshot = await getDocs(q);
-    const products = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    const products = querySnapshot.docs
+      .map((productDoc) => mapProduct(productDoc))
+      .filter((product): product is Product => Boolean(product));
     return { data: products };
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
-export const createProduct = async (productData: any) => {
+export const createProduct = async (productData: ProductDraft): Promise<{ data: Product }> => {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const user = getStoredUser();
     if (!user) throw new Error('User not authenticated');
     
     const docRef = await addDoc(collection(db, 'products'), {
       ...productData,
       userId: user.uid,
+      seller: productData.seller ?? {
+        name: user.name || user.email?.split('@')[0] || 'Student',
+        email: user.email,
+      },
       status: 'pending', // Default status for new products
       createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
+      updatedAt: Timestamp.now(),
     });
     
-    return { data: { id: docRef.id, ...productData, status: 'pending' } };
-  } catch (error: any) {
-    console.error('Product creation error:', error.message);
+    return {
+      data: {
+        id: docRef.id,
+        ...productData,
+        userId: user.uid,
+        seller: productData.seller ?? {
+          name: user.name || user.email?.split('@')[0] || 'Student',
+          email: user.email,
+        },
+        status: 'pending',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      },
+    };
+  } catch (error: unknown) {
+    console.error('Product creation error:', normalizeError(error).message);
     // Return mock success for testing without Firestore
-    return { data: { id: Date.now().toString(), ...productData, status: 'pending' } };
+    const user = getStoredUser();
+    return {
+      data: {
+        id: Date.now().toString(),
+        ...productData,
+        userId: user?.uid || 'local-user',
+        seller: productData.seller ?? {
+          name: user?.name || user?.email?.split('@')[0] || 'Student',
+          email: user?.email || null,
+        },
+        status: 'pending',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      },
+    };
   }
 };
 
-export const updateProduct = async (id: string, productData: any) => {
+export const updateProduct = async (id: string, productData: Partial<ProductDraft>) => {
   try {
     const docRef = doc(db, 'products', id);
     await updateDoc(docRef, {
       ...productData,
-      updatedAt: Timestamp.now()
+      updatedAt: Timestamp.now(),
     });
     return { data: { id, ...productData } };
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
@@ -183,17 +263,14 @@ export const deleteProduct = async (id: string) => {
   try {
     await deleteDoc(doc(db, 'products', id));
     return { data: { id } };
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error: unknown) {
+    throw normalizeError(error);
   }
 };
 
 // Image upload function
 export const uploadImage = async (file: File) => {
   try {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
-    if (!user) throw new Error('User not authenticated. Please log in first.');
-    
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       throw new Error('Image size too large. Max: 10MB');
@@ -203,17 +280,57 @@ export const uploadImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       throw new Error('Invalid file type. Please upload an image.');
     }
-    
-    const fileName = `${user.uid}/${Date.now()}-${file.name}`;
-    const storageRef = ref(storage, `products/${fileName}`);
-    
-    await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(storageRef);
-    
-    return { data: { url: downloadURL } };
-  } catch (error: any) {
+
+    const compressedImage = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => reject(new Error('Unable to read image file.'));
+      reader.onload = () => {
+        const image = new Image();
+
+        image.onerror = () => reject(new Error('Unable to process image file.'));
+        image.onload = () => {
+          const maxDimension = 1200;
+          const scale = Math.min(maxDimension / image.width, maxDimension / image.height, 1);
+          const canvas = document.createElement('canvas');
+
+          canvas.width = Math.max(1, Math.round(image.width * scale));
+          canvas.height = Math.max(1, Math.round(image.height * scale));
+
+          const context = canvas.getContext('2d');
+          if (!context) {
+            reject(new Error('Unable to prepare image for upload.'));
+            return;
+          }
+
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+          let quality = 0.82;
+          let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+          while (dataUrl.length > 700_000 && quality > 0.45) {
+            quality -= 0.08;
+            dataUrl = canvas.toDataURL('image/jpeg', quality);
+          }
+
+          if (dataUrl.length > 900_000) {
+            reject(new Error('Image is still too large after compression. Please choose a smaller image.'));
+            return;
+          }
+
+          resolve(dataUrl);
+        };
+
+        image.src = String(reader.result);
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    return { data: { url: compressedImage } };
+  } catch (error: unknown) {
     console.error('Image upload error:', error);
-    throw new Error(`Image upload failed: ${error.message}`);
+    throw new Error(`Image upload failed: ${normalizeError(error).message}`);
   }
 };
 

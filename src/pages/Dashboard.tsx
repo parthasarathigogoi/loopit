@@ -3,18 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Package, Settings, LogOut, ShieldCheck, Heart, Edit3, Trash2 } from 'lucide-react';
 import { fetchUserProducts, deleteProduct } from '../api';
 import { auth } from '../firebase';
-
-interface User {
-  name?: string;
-  email?: string;
-  uid?: string;
-}
+import type { Product, StoredUser } from '../types/app';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [userListings, setUserListings] = useState<any[]>([]);
+  const [userListings, setUserListings] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<StoredUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Check Firebase Auth first
@@ -38,6 +33,7 @@ const Dashboard: React.FC = () => {
             name: firebaseUser.displayName || 'User',
             email: firebaseUser.email || 'No email',
             uid: firebaseUser.uid,
+            token: '',
           });
         }
       } else {
@@ -45,6 +41,7 @@ const Dashboard: React.FC = () => {
           name: firebaseUser.displayName || 'User',
           email: firebaseUser.email || 'No email',
           uid: firebaseUser.uid,
+          token: '',
         });
       }
       setAuthLoading(false);
@@ -75,8 +72,8 @@ const Dashboard: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this listing?')) {
       try {
         await deleteProduct(id);
-        setUserListings(userListings.filter(l => l._id !== id));
-      } catch (error) {
+        setUserListings((currentListings) => currentListings.filter((listing) => listing.id !== id));
+      } catch (error: unknown) {
         console.error('Error deleting product:', error);
         alert('Failed to delete product');
       }
@@ -180,7 +177,7 @@ const Dashboard: React.FC = () => {
 
               <div className="space-y-6">
                 {userListings.map((listing) => (
-                  <div key={listing._id} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 rounded-3xl border border-gray-50 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all group">
+                  <div key={listing.id} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 rounded-3xl border border-gray-50 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all group">
                     <div className="w-full sm:w-32 aspect-square rounded-2xl overflow-hidden shadow-md">
                       <img src={listing.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     </div>
@@ -194,11 +191,11 @@ const Dashboard: React.FC = () => {
                       <p className="text-2xl font-black text-indigo-600 mt-2">₹{listing.price}</p>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Link to={`/product/${listing._id}`} className="p-4 bg-gray-100 text-gray-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
+                      <Link to={`/product/${listing.id}`} className="p-4 bg-gray-100 text-gray-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm">
                         <Edit3 className="w-5 h-5" />
                       </Link>
                       <button 
-                        onClick={() => handleDelete(listing._id)}
+                        onClick={() => handleDelete(listing.id)}
                         className="p-4 bg-gray-100 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
                       >
                         <Trash2 className="w-5 h-5" />

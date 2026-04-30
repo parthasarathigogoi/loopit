@@ -4,12 +4,13 @@ import { MapPin, MessageCircle, ArrowLeft, ShieldCheck, Share2, Heart } from 'lu
 import { createPaytmBooking, fetchPaytmBookingStatus, fetchProduct } from '../api';
 import { hasAcceptedCurrentPolicy } from '../constants/policy';
 import { getBookingBreakdown } from '../constants/payment';
+import type { Product, StoredUser } from '../types/app';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState('');
@@ -22,7 +23,7 @@ const ProductDetail: React.FC = () => {
           const { data } = await fetchProduct(id);
           setProduct(data);
         }
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(error);
       } finally {
         setLoading(false);
@@ -90,7 +91,7 @@ const ProductDetail: React.FC = () => {
 
   const handlePaytmBooking = async () => {
     const storedUser = localStorage.getItem('user');
-    const currentUser = storedUser ? JSON.parse(storedUser) : null;
+    const currentUser = storedUser ? (JSON.parse(storedUser) as StoredUser) : null;
 
     if (!currentUser) {
       navigate('/login');

@@ -2,11 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Star, Clock, ArrowRight } from 'lucide-react';
 import { fetchProducts } from '../api';
+import type { Product } from '../types/app';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
-  const [recentListings, setRecentListings] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [recentListings, setRecentListings] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -15,7 +16,7 @@ const Home: React.FC = () => {
         const { data } = await fetchProducts();
         setAllProducts(data);
         setRecentListings(data.slice(0, 4));
-      } catch (error) {
+      } catch (error: unknown) {
         console.error(error);
       }
     };

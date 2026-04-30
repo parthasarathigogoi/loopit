@@ -1,17 +1,18 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import ProtectedProfileRoute from './components/ProtectedProfileRoute';
-import Home from './pages/Home';
-import Listings from './pages/Listings';
-import ProductDetail from './pages/ProductDetail';
-import Sell from './pages/Sell';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import AdminPanel from './pages/AdminPanel';
-import Policy from './pages/Policy';
+
+const Home = lazy(() => import('./pages/Home'));
+const Listings = lazy(() => import('./pages/Listings'));
+const ProductDetail = lazy(() => import('./pages/ProductDetail'));
+const Sell = lazy(() => import('./pages/Sell'));
+const Login = lazy(() => import('./pages/Login'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const Policy = lazy(() => import('./pages/Policy'));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -24,32 +25,42 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-white flex flex-col">
       {!hideNavbar && <Navbar />}
       <main className="flex-1">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/listings" element={<Listings />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/sell" element={<Sell />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/policy" element={<Policy />} />
-          <Route 
-            path="/profile" 
-            element={
-              <ProtectedProfileRoute>
-                <Dashboard />
-              </ProtectedProfileRoute>
-            } 
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedAdminRoute>
-                <AdminPanel />
-              </ProtectedAdminRoute>
-            }
-          />
-          {/* 404 Fallback - redirect to home */}
-          <Route path="*" element={<Home />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="flex min-h-[40vh] items-center justify-center bg-white">
+              <div className="text-center">
+                <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-b-2 border-indigo-600"></div>
+                <p className="text-sm font-semibold text-gray-600">Loading page...</p>
+              </div>
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/listings" element={<Listings />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/sell" element={<Sell />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/policy" element={<Policy />} />
+            <Route 
+              path="/profile" 
+              element={
+                <ProtectedProfileRoute>
+                  <Dashboard />
+                </ProtectedProfileRoute>
+              } 
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminPanel />
+                </ProtectedAdminRoute>
+              }
+            />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </Suspense>
       </main>
       {!hideFooter && <Footer />}
     </div>

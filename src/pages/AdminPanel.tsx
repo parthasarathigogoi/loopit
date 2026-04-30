@@ -4,19 +4,9 @@ import { auth, db } from '../firebase';
 import { collection, query, where, onSnapshot, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { ChevronDown, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { ADMIN_EMAIL, normalizeEmail } from '../constants/admin';
+import type { Product, ProductStatus } from '../types/app';
 
-interface Product {
-  id: string;
-  title: string;
-  price: number;
-  location: string;
-  image: string;
-  userId: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: any;
-}
-
-type StatusTab = 'pending' | 'approved' | 'rejected';
+type StatusTab = ProductStatus;
 
 const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -51,11 +41,22 @@ const AdminPanel: React.FC = () => {
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const productsData: Product[] = [];
-      snapshot.forEach((doc) => {
+      snapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
         productsData.push({
-          id: doc.id,
-          ...doc.data(),
-        } as Product);
+          id: docSnapshot.id,
+          title: String(data.title ?? ''),
+          description: String(data.description ?? ''),
+          price: Number(data.price ?? 0),
+          category: String(data.category ?? ''),
+          location: String(data.location ?? ''),
+          image: String(data.image ?? ''),
+          userId: String(data.userId ?? ''),
+          status: (data.status ?? activeTab) as ProductStatus,
+          seller: data.seller as Product['seller'],
+          createdAt: (data.createdAt as Product['createdAt']) ?? null,
+          updatedAt: (data.updatedAt as Product['updatedAt']) ?? null,
+        });
       });
       setProducts(productsData);
       setLoading(false);
