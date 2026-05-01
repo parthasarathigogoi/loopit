@@ -31,9 +31,10 @@ service cloud.firestore {
       allow write: if request.auth.uid == userId;
     }
 
-    // Products collection - authenticated users can create, own documents control edit/delete
+    // Products collection - everyone can browse, authenticated users can create,
+    // and owners can edit/delete their own products.
     match /products/{productId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if request.auth != null;
       allow update, delete: if request.auth.uid == resource.data.userId;
     }
@@ -61,7 +62,8 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     match /products/{productId} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
@@ -86,7 +88,7 @@ Your current rules: `if false` = **BLOCKS ALL ACCESS**
 This means:
 - ❌ Cannot save products
 - ❌ Cannot save user data
-- ❌ Cannot read from database
+- ❌ Cannot read from database before login
 - ❌ App features won't work
 
 **Action Required:** Update rules now to test the app!
