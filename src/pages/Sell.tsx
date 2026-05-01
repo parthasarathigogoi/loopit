@@ -5,6 +5,7 @@ import { createProduct, uploadImage } from '../api';
 
 const Sell: React.FC = () => {
   const navigate = useNavigate();
+  const fallbackImageUrl = '/item-placeholder.svg';
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -22,7 +23,7 @@ const Sell: React.FC = () => {
     
     setLoading(true);
     try {
-      let imageUrl = 'https://via.placeholder.com/400';
+      let imageUrl = fallbackImageUrl;
       
       // Upload image if provided (non-blocking - use fallback if upload fails)
       if (imageFile) {

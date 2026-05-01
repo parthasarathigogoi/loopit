@@ -170,7 +170,7 @@ const AdminPanel: React.FC = () => {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src =
-                        'https://via.placeholder.com/300x200?text=No+Image';
+                        '/item-placeholder.svg';
                     }}
                   />
                   <div className="absolute top-3 right-3 bg-white px-3 py-1 rounded-full text-sm font-semibold text-gray-900">
