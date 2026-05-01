@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, MessageCircle, ArrowLeft, ShieldCheck, Share2, Heart } from 'lucide-react';
-import { createPaytmBooking, fetchPaytmBookingStatus, fetchProduct } from '../api';
+import { MapPin, MessageCircle, ArrowLeft, ShieldCheck, Share2, Heart, Flag, Sparkles } from 'lucide-react';
+import { createPaytmBooking, fetchPaytmBookingStatus, fetchProduct, fetchProducts } from '../api';
 import { hasAcceptedCurrentPolicy } from '../constants/policy';
 import { getBookingBreakdown } from '../constants/payment';
+import ProductCard from '../components/ProductCard';
 import type { Product, StoredUser } from '../types/app';
 
 const ProductDetail: React.FC = () => {
@@ -15,6 +16,7 @@ const ProductDetail: React.FC = () => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState('');
   const [paymentError, setPaymentError] = useState('');
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     const getProduct = async () => {
@@ -22,6 +24,8 @@ const ProductDetail: React.FC = () => {
         if (id) {
           const { data } = await fetchProduct(id);
           setProduct(data);
+          const relatedResponse = await fetchProducts();
+          setRelatedProducts(relatedResponse.data.filter((item) => item.id !== id && item.category === data.category).slice(0, 4));
         }
       } catch (error: unknown) {
         console.error(error);
@@ -33,16 +37,11 @@ const ProductDetail: React.FC = () => {
   }, [id]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950"><div className="h-12 w-12 animate-spin rounded-full border-b-2 border-emerald-500" /></div>;
   }
 
   if (!product) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Item not found</h2>
-        <Link to="/listings" className="text-indigo-600 font-bold hover:underline">Back to marketplace</Link>
-      </div>
-    );
+    return <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950"><h2 className="text-2xl font-black text-slate-900 dark:text-white mb-4">Item not found</h2><Link to="/listings" className="text-emerald-600 font-bold hover:underline">Back to marketplace</Link></div>;
   }
 
   const whatsappUrl = `https://wa.me/${product.seller?.phone}?text=Hi ${product.seller?.name}, I'm interested in your ${product.title} listed on LoopIt.`;
@@ -177,44 +176,56 @@ const ProductDetail: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Link to="/listings" className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 hover:text-indigo-600 transition-colors mb-8">
+        <Link to="/listings" className="inline-flex items-center gap-2 text-sm font-black text-slate-500 hover:text-emerald-600 transition-colors mb-8">
           <ArrowLeft className="w-4 h-4" /> Back to listings
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left: Image */}
           <div className="space-y-6">
-            <div className="relative aspect-square rounded-3xl overflow-hidden border border-gray-100 shadow-xl">
+            <div className="relative aspect-square rounded-[2.5rem] overflow-hidden border border-white bg-white shadow-2xl shadow-emerald-950/10 dark:border-slate-800 dark:bg-slate-900">
               <img 
-                src={product.image} 
+                src={product.image || '/item-placeholder.svg'} 
                 alt={product.title}
                 className="w-full h-full object-cover"
                 crossOrigin="anonymous"
+                onError={(event) => ((event.target as HTMLImageElement).src = '/item-placeholder.svg')}
               />
-              <button className="absolute top-6 right-6 p-3 bg-white/90 backdrop-blur-md rounded-full text-gray-600 hover:text-red-500 shadow-lg transition-all">
+              <button className="absolute top-6 right-6 p-3 bg-white/90 backdrop-blur-md rounded-full text-slate-600 hover:text-red-500 shadow-lg transition-all">
                 <Heart className="w-5 h-5" />
               </button>
+              <div className="absolute bottom-6 left-6 rounded-full bg-emerald-500 px-4 py-2 text-sm font-black text-white shadow-lg">
+                {product.condition || 'Good'} condition
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {[product.image, product.image, product.image, product.image].map((image, index) => (
+                <div key={index} className="aspect-square overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                  <img src={image || '/item-placeholder.svg'} alt="" className="h-full w-full object-cover" onError={(event) => ((event.target as HTMLImageElement).src = '/item-placeholder.svg')} />
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Right: Info */}
           <div className="flex flex-col">
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-4">
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full uppercase tracking-wider">
+                <span className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs font-black rounded-full uppercase tracking-wider dark:bg-emerald-400/10 dark:text-emerald-300">
                   {product.category}
                 </span>
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-white text-slate-600 text-xs font-black rounded-full uppercase tracking-wider dark:bg-slate-900 dark:text-slate-300">
+                  <Sparkles className="h-3 w-3 text-emerald-500" /> Available
+                </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight mb-4">
+              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight mb-4">
                 {product.title}
               </h1>
               <div className="flex items-center gap-4 mb-6">
-                <span className="text-4xl font-black text-indigo-600">₹{product.price}</span>
+                <span className="text-4xl font-black text-emerald-600">₹{product.price}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-600 font-medium bg-gray-50 px-4 py-2.5 rounded-2xl inline-flex">
-                <MapPin className="w-4 h-4 text-indigo-600" />
+              <div className="flex items-center gap-2 text-slate-600 font-bold bg-white px-4 py-2.5 rounded-2xl inline-flex dark:bg-slate-900 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-emerald-600" />
                 {product.location}
               </div>
             </div>
@@ -223,7 +234,7 @@ const ProductDetail: React.FC = () => {
               {/* WhatsApp Contact Action */}
               <button
                 onClick={handleContactSeller}
-                className="flex items-center justify-center gap-3 bg-green-500 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-600 shadow-xl shadow-green-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center justify-center gap-3 bg-emerald-500 text-white py-4 rounded-2xl font-black text-lg hover:bg-emerald-600 shadow-xl shadow-emerald-100 transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 <MessageCircle className="w-6 h-6" />
                 {hasAcceptedPolicy ? 'Contact via WhatsApp' : 'Review Policy to Contact Seller'}
@@ -232,7 +243,7 @@ const ProductDetail: React.FC = () => {
                 Users must agree to the LoopIt booking and usage policy before continuing to the seller.
               </p>
 
-              <div className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 space-y-4">
+              <div className="bg-white border border-emerald-100 rounded-3xl p-6 space-y-4 shadow-xl shadow-emerald-950/5 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h3 className="text-lg font-bold text-gray-900">Book With Paytm</h3>
@@ -240,7 +251,7 @@ const ProductDetail: React.FC = () => {
                       Reserve this item by paying the booking amount online. The fixed LoopIt fee is non-refundable.
                     </p>
                   </div>
-                  <span className="text-2xl font-black text-indigo-600">₹{bookingBreakdown.totalBookingAmount}</span>
+                  <span className="text-2xl font-black text-emerald-600">₹{bookingBreakdown.totalBookingAmount}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-sm text-gray-700">
                   <div className="bg-white rounded-2xl p-4">
@@ -272,41 +283,52 @@ const ProductDetail: React.FC = () => {
               </div>
 
               {/* Description */}
-              <div className="border-t border-gray-100 pt-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Description</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">
+              <div className="border-t border-slate-200 pt-8 dark:border-slate-800">
+                <h3 className="text-lg font-black mb-4">Description</h3>
+                <p className="text-slate-600 leading-relaxed text-lg dark:text-slate-300">
                   {product.description}
                 </p>
               </div>
 
-              {/* Seller Info */}
-              <div className="bg-gray-50 p-8 rounded-3xl border border-gray-100">
+              <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl shadow-emerald-950/5 dark:bg-slate-900 dark:border-slate-800">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-gray-900">Seller Profile</h3>
+                  <h3 className="font-black">Seller Profile</h3>
                   <div className="flex items-center gap-1 text-yellow-500">
                     <ShieldCheck className="w-4 h-4 fill-yellow-500" />
                     <span className="text-sm font-bold">Student Verified</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-2xl">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 font-black text-2xl">
                     {product.seller?.name?.[0] || 'S'}
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900 text-lg">{product.seller?.name || 'Student'}</h4>
-                    <p className="text-sm text-gray-500 font-medium mt-1">Local Student Seller</p>
+                    <h4 className="font-bold text-lg">{product.seller?.name || 'Student'}</h4>
+                    <p className="text-sm text-slate-500 font-medium mt-1">Local Student Seller</p>
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-4">
-                <button className="flex items-center gap-2 text-gray-400 hover:text-indigo-600 text-sm font-semibold transition-colors">
+                <button className="flex items-center gap-2 text-slate-400 hover:text-emerald-600 text-sm font-semibold transition-colors">
                   <Share2 className="w-4 h-4" /> Share
+                </button>
+                <button className="flex items-center gap-2 text-slate-400 hover:text-red-500 text-sm font-semibold transition-colors">
+                  <Flag className="w-4 h-4" /> Report product
                 </button>
               </div>
             </div>
           </div>
         </div>
+
+        {relatedProducts.length > 0 && (
+          <section className="mt-16">
+            <h2 className="text-3xl font-black tracking-tight">Related products</h2>
+            <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {relatedProducts.map((item) => <ProductCard key={item.id} product={item} />)}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

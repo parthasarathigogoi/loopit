@@ -1,26 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Search, MapPin, SlidersHorizontal } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { fetchProducts } from '../api';
+import ProductCard from '../components/ProductCard';
 import { categories } from '../data/mockData';
 import type { Product } from '../types/app';
 
 const Listings: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const queryCategory = searchParams.get('category');
-  const querySearch = searchParams.get('search');
-  const [priceRange, setPriceRange] = useState(2000);
-  const [listings, setListings] = useState<Product[]>([]);
-  const selectedCategory = queryCategory || 'All';
-  const searchQuery = querySearch || '';
+  const [priceRange, setPriceRange] = useState(5000);
+  const [condition, setCondition] = useState('All');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const selectedCategory = searchParams.get('category') || 'All';
+  const searchQuery = searchParams.get('search') || '';
 
   useEffect(() => {
     const getProducts = async () => {
       try {
         const { data } = await fetchProducts();
-        setListings(data);
-      } catch (error: unknown) {
+        setProducts(data);
+      } catch (error) {
         console.error(error);
+      } finally {
+        setLoading(false);
       }
     };
     getProducts();
@@ -28,7 +31,6 @@ const Listings: React.FC = () => {
 
   const updateFilters = (updates: { category?: string; search?: string }) => {
     const nextParams = new URLSearchParams(searchParams);
-
     if (updates.category !== undefined) {
       if (updates.category === 'All') {
         nextParams.delete('category');
@@ -36,145 +38,121 @@ const Listings: React.FC = () => {
         nextParams.set('category', updates.category);
       }
     }
-
     if (updates.search !== undefined) {
-      const trimmedSearch = updates.search.trim();
-      if (trimmedSearch) {
+      if (updates.search.trim()) {
         nextParams.set('search', updates.search);
       } else {
         nextParams.delete('search');
       }
     }
-
     setSearchParams(nextParams, { replace: true });
   };
 
-  const filteredListings = listings.filter(item => 
-    (selectedCategory === 'All' || item.category === selectedCategory) &&
-    item.price <= priceRange &&
-    (searchQuery === '' || item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     item.description?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return products.filter((product) => {
+      const matchesSearch = !query || product.title.toLowerCase().includes(query) || product.description?.toLowerCase().includes(query);
+      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+      const matchesCondition = condition === 'All' || product.condition === condition;
+      return matchesSearch && matchesCategory && matchesCondition && product.price <= priceRange;
+    });
+  }, [condition, priceRange, products, searchQuery, selectedCategory]);
 
   return (
-    <div className="min-h-screen bg-gray-50/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header & Search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Explore Marketplace</h1>
-            <p className="text-gray-500 mt-1">Discover great deals from fellow students</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 md:w-80">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search items..."
-                  value={searchQuery}
-                  onChange={(e) => updateFilters({ search: e.target.value })}
-                  className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-600 outline-none transition-all shadow-sm"
-                />
+    <main className="min-h-screen bg-slate-50 text-slate-950 dark:bg-slate-950 dark:text-white">
+      <section className="border-b border-emerald-100 bg-white/70 px-4 py-10 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                <Sparkles className="h-4 w-4" />
+                Marketplace
+              </div>
+              <h1 className="text-4xl font-black tracking-tight sm:text-5xl">Explore Loopit deals</h1>
+              <p className="mt-3 max-w-2xl text-base font-medium text-slate-600 dark:text-slate-300">
+                Search, filter, favorite, and discover second-hand products from sellers around you.
+              </p>
             </div>
-            <button className="p-3 bg-white border border-gray-200 rounded-2xl text-gray-600 hover:bg-gray-50 transition-colors shadow-sm">
-              <SlidersHorizontal className="w-5 h-5" />
-            </button>
+            <div className="relative w-full lg:max-w-md">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchQuery}
+                onChange={(event) => updateFilters({ search: event.target.value })}
+                placeholder="Search items..."
+                className="w-full rounded-full border border-slate-200 bg-white py-4 pl-12 pr-5 text-sm font-bold outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+              />
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Sidebar Filters */}
-          <aside className="lg:w-64 space-y-8">
+      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-[280px_1fr] lg:px-8">
+        <aside className="h-fit rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-emerald-500" />
+            <h2 className="font-black">Filters</h2>
+          </div>
+
+          <div className="space-y-7">
             <div>
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4">Categories</h3>
-              <div className="space-y-2">
-                {categories.map(cat => (
-                  <button 
-                    key={cat}
-                    onClick={() => updateFilters({ category: cat })}
-                    className={`w-full text-left px-4 py-2 rounded-xl text-sm font-medium transition-all ${selectedCategory === cat ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-600 hover:bg-white'}`}
+              <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Categories</p>
+              <div className="flex flex-wrap gap-2 lg:flex-col">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => updateFilters({ category })}
+                    className={`rounded-2xl px-4 py-2.5 text-left text-sm font-black transition ${
+                      selectedCategory === category
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/25'
+                        : 'bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
                   >
-                    {cat}
+                    {category}
                   </button>
                 ))}
               </div>
             </div>
 
             <div>
-              <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-4">Price Range</h3>
-              <input 
-                type="range" 
-                min="0" 
-                max="2000" 
-                step="100"
-                value={priceRange}
-                onChange={(e) => setPriceRange(parseInt(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-              />
-              <div className="flex justify-between mt-2 text-sm font-bold text-indigo-600">
+              <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Condition</p>
+              <select value={condition} onChange={(event) => setCondition(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-950">
+                {['All', 'Like new', 'Good', 'Used', 'Needs repair'].map((value) => <option key={value}>{value}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <p className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Max Price</p>
+              <input type="range" min="0" max="5000" step="100" value={priceRange} onChange={(event) => setPriceRange(Number(event.target.value))} className="w-full accent-emerald-500" />
+              <div className="mt-2 flex justify-between text-sm font-black text-emerald-600">
                 <span>₹0</span>
                 <span>₹{priceRange}</span>
               </div>
             </div>
-          </aside>
-
-          {/* Grid */}
-          <div className="flex-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
-              {filteredListings.map((listing) => (
-                <Link key={listing.id} to={`/product/${listing.id}`} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl transition-all">
-                  <div className="relative aspect-[4/3] overflow-hidden">
-                    <img 
-                      src={listing.image} 
-                      alt={listing.title}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      crossOrigin="anonymous"
-                    />
-                    <div className="absolute bottom-4 left-4">
-                      <span className="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full shadow-lg">
-                        {listing.category}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
-                        {listing.title}
-                      </h3>
-                      <span className="text-lg font-extrabold text-indigo-600">₹{listing.price}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-sm text-gray-500 mb-4">
-                      <MapPin className="w-3 h-3" />
-                      <span>{listing.location}</span>
-                    </div>
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-50">
-                      <span className="text-xs text-gray-400 font-medium">By {listing.seller?.name || 'Student'}</span>
-                      <span className="text-sm font-bold text-indigo-600">View Details</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-            
-            {filteredListings.length === 0 && (
-              <div className="text-center py-20">
-                <p className="text-gray-500 text-lg">No items found matching your filters.</p>
-                <button 
-                  onClick={() => {
-                    updateFilters({ category: 'All', search: '' });
-                    setPriceRange(2000);
-                  }}
-                  className="mt-4 text-indigo-600 font-bold hover:underline"
-                >
-                  Clear all filters
-                </button>
-              </div>
-            )}
           </div>
+        </aside>
+
+        <div>
+          <div className="mb-6 flex items-center justify-between">
+            <p className="text-sm font-black text-slate-500">{filteredProducts.length} products found</p>
+            <span className="rounded-full bg-emerald-100 px-4 py-2 text-xs font-black text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">Infinite scroll ready</span>
+          </div>
+
+          {loading ? (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-80 animate-pulse rounded-[1.75rem] bg-slate-200 dark:bg-slate-800" />)}</div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900">
+              <p className="text-xl font-black">No items found</p>
+              <p className="mt-2 text-sm font-semibold text-slate-500">Try a different search, category, condition, or price range.</p>
+              <button onClick={() => { updateFilters({ category: 'All', search: '' }); setCondition('All'); setPriceRange(5000); }} className="mt-5 rounded-full bg-emerald-500 px-5 py-3 text-sm font-black text-white">Clear filters</button>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+              {filteredProducts.map((product) => <ProductCard key={product.id} product={product} />)}
+            </div>
+          )}
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

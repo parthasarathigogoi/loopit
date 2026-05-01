@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Settings, LogOut, ShieldCheck, Heart, Edit3, Trash2 } from 'lucide-react';
+import { Package, Settings, LogOut, ShieldCheck, Heart, Edit3, Trash2, Star, Bell, MessageCircle } from 'lucide-react';
 import { fetchUserProducts, deleteProduct } from '../api';
 import { auth } from '../firebase';
 import type { Product, StoredUser } from '../types/app';
@@ -112,28 +112,33 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  const soldItems = userListings.filter((listing) => listing.sold).length;
+  const totalViews = userListings.length === 0 ? 0 : userListings.length * 18;
+  const rating = userListings.length === 0 ? 'New' : '4.8';
+
   return (
-    <div className="min-h-screen bg-gray-50/30 py-12">
+    <div className="min-h-screen bg-slate-50 py-12 text-slate-950 dark:bg-slate-950 dark:text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
           
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-2 bg-indigo-600"></div>
-              <div className="w-24 h-24 bg-indigo-100 rounded-[2rem] flex items-center justify-center text-indigo-600 font-black text-4xl mx-auto mb-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-xl text-center relative overflow-hidden dark:bg-slate-900 dark:border-slate-800">
+              <div className="absolute top-0 left-0 w-full h-2 bg-emerald-500"></div>
+              <div className="w-24 h-24 bg-emerald-100 rounded-[2rem] flex items-center justify-center text-emerald-600 font-black text-4xl mx-auto mb-6">
                 {user?.name?.[0]?.toUpperCase() || '?'}
               </div>
-              <h2 className="text-xl font-black text-gray-900">{user?.name || 'User'}</h2>
+              <h2 className="text-xl font-black">{user?.name || 'User'}</h2>
               <p className="text-sm text-gray-500 font-medium mt-1">{user?.email || 'No email'}</p>
+              <p className="mt-4 text-sm leading-6 text-slate-500">Resale lover, bargain hunter, and active Loopit community member.</p>
               
-              <div className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full inline-flex">
+              <div className="mt-8 flex items-center justify-center gap-2 text-xs font-bold text-emerald-600 bg-emerald-50 px-4 py-2 rounded-full inline-flex">
                 <ShieldCheck className="w-4 h-4" /> Verified Student
               </div>
 
               <div className="mt-8 pt-8 border-t border-gray-50 space-y-4">
                 <button className="w-full flex items-center gap-3 p-4 bg-gray-50 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all font-bold group">
-                  <Settings className="w-5 h-5 text-gray-400 group-hover:text-white" /> Settings
+                  <Settings className="w-5 h-5 text-gray-400 group-hover:text-white" /> Edit Profile
                 </button>
                 <button 
                   onClick={handleLogout}
@@ -150,45 +155,59 @@ const Dashboard: React.FC = () => {
             {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               {[
-                { label: "Active Listings", value: userListings.length, icon: Package, color: "text-indigo-600", bg: "bg-indigo-50" },
-                { label: "Total Views", value: 234, icon: Heart, color: "text-red-500", bg: "bg-red-50" },
-                { label: "Items Sold", value: 12, icon: ShieldCheck, color: "text-green-600", bg: "bg-green-50" },
+                { label: "Active Listings", value: userListings.length, icon: Package, color: "text-emerald-600", bg: "bg-emerald-50" },
+                { label: "Sold Items", value: soldItems, icon: Heart, color: "text-red-500", bg: "bg-red-50" },
+                { label: "Rating", value: rating, icon: Star, color: "text-yellow-500", bg: "bg-yellow-50" },
               ].map((stat) => (
-                <div key={stat.label} className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl flex items-center gap-6 group hover:-translate-y-1 transition-all">
+                <div key={stat.label} className="bg-white p-8 rounded-[2.5rem] border border-emerald-100 shadow-xl flex items-center gap-6 group hover:-translate-y-1 transition-all dark:bg-slate-900 dark:border-slate-800">
                   <div className={`w-14 h-14 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
                     <stat.icon className="w-7 h-7" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">{stat.label}</p>
-                    <p className="text-3xl font-black text-gray-900">{stat.value}</p>
+                    <p className="text-3xl font-black">{stat.value}</p>
                   </div>
                 </div>
               ))}
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                { label: "Wishlist", desc: `${0} saved products`, icon: Heart },
+                { label: "Messages", desc: `${0} unread chats`, icon: MessageCircle },
+                { label: "Notifications", desc: `${totalViews} estimated listing views`, icon: Bell },
+              ].map((item) => (
+                <div key={item.label} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                  <item.icon className="mb-4 h-6 w-6 text-emerald-500" />
+                  <h3 className="font-black">{item.label}</h3>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+
             {/* My Listings */}
-            <div className="bg-white p-10 rounded-[3rem] border border-gray-100 shadow-xl">
+            <div className="bg-white p-10 rounded-[3rem] border border-emerald-100 shadow-xl dark:bg-slate-900 dark:border-slate-800">
               <div className="flex items-center justify-between mb-10">
-                <h2 className="text-2xl font-black text-gray-900">Manage Listings</h2>
-                <Link to="/sell" className="text-sm font-bold text-indigo-600 bg-indigo-50 px-6 py-3 rounded-full hover:bg-indigo-600 hover:text-white transition-all">
+                <h2 className="text-2xl font-black">Uploaded Products</h2>
+                <Link to="/sell" className="text-sm font-bold text-emerald-600 bg-emerald-50 px-6 py-3 rounded-full hover:bg-emerald-600 hover:text-white transition-all">
                   + Add New Item
                 </Link>
               </div>
 
               <div className="space-y-6">
                 {userListings.map((listing) => (
-                  <div key={listing.id} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 rounded-3xl border border-gray-50 hover:border-indigo-100 hover:bg-indigo-50/30 transition-all group">
+                  <div key={listing.id} className="flex flex-col sm:flex-row sm:items-center gap-6 p-6 rounded-3xl border border-gray-100 hover:border-emerald-100 hover:bg-emerald-50/30 transition-all group dark:border-slate-800 dark:hover:bg-slate-800/50">
                     <div className="w-full sm:w-32 aspect-square rounded-2xl overflow-hidden shadow-md">
                       <img src={listing.image} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <span className="px-2.5 py-0.5 text-[10px] font-black uppercase rounded-full bg-green-100 text-green-700">
-                          Active
+                          {listing.status}
                         </span>
                       </div>
-                      <h3 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{listing.title}</h3>
-                      <p className="text-2xl font-black text-indigo-600 mt-2">₹{listing.price}</p>
+                      <h3 className="text-xl font-bold group-hover:text-emerald-600 transition-colors">{listing.title}</h3>
+                      <p className="text-2xl font-black text-emerald-600 mt-2">₹{listing.price}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <Link to={`/product/${listing.id}`} className="p-4 bg-gray-100 text-gray-600 rounded-2xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm">

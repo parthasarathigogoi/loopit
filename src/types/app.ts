@@ -15,7 +15,12 @@ export interface Product {
   price: number;
   category: string;
   location: string;
+  locationLat?: number | null;
+  locationLng?: number | null;
   image: string;
+  condition?: string;
+  sold?: boolean;
+  featured?: boolean;
   userId: string;
   status: ProductStatus;
   seller?: SellerInfo;
@@ -42,6 +47,9 @@ export interface ProductDraft {
   price: number;
   category: string;
   location: string;
+  locationLat?: number | null;
+  locationLng?: number | null;
   image: string;
+  condition?: string;
   seller?: SellerInfo;
 }
