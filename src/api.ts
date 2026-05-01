@@ -147,12 +147,11 @@ export const logout = async () => {
 // Product functions
 export const fetchProducts = async (): Promise<{ data: Product[] }> => {
   try {
-    // Only fetch approved products for regular users
-    const q = query(collection(db, 'products'), where('status', '==', 'approved'));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(collection(db, 'products'));
     const products = querySnapshot.docs
       .map((productDoc) => mapProduct(productDoc))
-      .filter((product): product is Product => Boolean(product));
+      .filter((product): product is Product => Boolean(product))
+      .filter((product) => product.status !== 'rejected');
     return { data: products };
   } catch (error: unknown) {
     throw normalizeError(error);

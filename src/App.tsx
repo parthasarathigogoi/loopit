@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -13,6 +13,42 @@ const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const Policy = lazy(() => import('./pages/Policy'));
+
+const ChunkLoadRecovery: React.FC = () => {
+  useEffect(() => {
+    const recoverFromStaleChunk = (message: string) => {
+      const isChunkLoadError =
+        message.includes('Failed to fetch dynamically imported module') ||
+        message.includes('Importing a module script failed') ||
+        message.includes('error loading dynamically imported module');
+
+      if (!isChunkLoadError || sessionStorage.getItem('chunk-reload-attempted') === 'true') {
+        return;
+      }
+
+      sessionStorage.setItem('chunk-reload-attempted', 'true');
+      window.location.reload();
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      recoverFromStaleChunk(event.message || '');
+    };
+
+    const handleRejection = (event: PromiseRejectionEvent) => {
+      recoverFromStaleChunk(String(event.reason?.message || event.reason || ''));
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
+  return null;
+};
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -70,6 +106,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
+      <ChunkLoadRecovery />
       <AppContent />
     </Router>
   );
