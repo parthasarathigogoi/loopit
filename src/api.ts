@@ -281,53 +281,25 @@ export const uploadImage = async (file: File) => {
       throw new Error('Invalid file type. Please upload an image.');
     }
 
-    const compressedImage = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
+    const formData = new FormData();
+    formData.append('image', file);
 
-      reader.onerror = () => reject(new Error('Unable to read image file.'));
-      reader.onload = () => {
-        const image = new Image();
-
-        image.onerror = () => reject(new Error('Unable to process image file.'));
-        image.onload = () => {
-          const maxDimension = 1200;
-          const scale = Math.min(maxDimension / image.width, maxDimension / image.height, 1);
-          const canvas = document.createElement('canvas');
-
-          canvas.width = Math.max(1, Math.round(image.width * scale));
-          canvas.height = Math.max(1, Math.round(image.height * scale));
-
-          const context = canvas.getContext('2d');
-          if (!context) {
-            reject(new Error('Unable to prepare image for upload.'));
-            return;
-          }
-
-          context.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-          let quality = 0.82;
-          let dataUrl = canvas.toDataURL('image/jpeg', quality);
-
-          while (dataUrl.length > 700_000 && quality > 0.45) {
-            quality -= 0.08;
-            dataUrl = canvas.toDataURL('image/jpeg', quality);
-          }
-
-          if (dataUrl.length > 900_000) {
-            reject(new Error('Image is still too large after compression. Please choose a smaller image.'));
-            return;
-          }
-
-          resolve(dataUrl);
-        };
-
-        image.src = String(reader.result);
-      };
-
-      reader.readAsDataURL(file);
+    const response = await fetch(`${BACKEND_BASE_URL}/api/products/upload`, {
+      method: 'POST',
+      body: formData,
     });
 
-    return { data: { url: compressedImage } };
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to upload image.');
+    }
+
+    const url = String(data.url || data.imageUrl || '');
+    if (!url) {
+      throw new Error('Upload completed without an image URL.');
+    }
+
+    return { data: { url } };
   } catch (error: unknown) {
     console.error('Image upload error:', error);
     throw new Error(`Image upload failed: ${normalizeError(error).message}`);
